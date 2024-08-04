@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 default_args = {
     'owner':'User',
-    'email':['skt.sukatat@gmail.com']
+    'email':['email']
 }
 
 dag = DAG('test', catchup=False, default_args = default_args)
