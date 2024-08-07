@@ -3,8 +3,11 @@ from airflow.decorators import dag, task
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 import pandas as pd
+import os
+from datetime import date
 
 TOP_30_POLICIES_URL = 'https://policy.bangkok.go.th/tracking/frontend/web/index.php?r=site%2Findex'
+TOP_30_BUCKET_OUTPUT = os.getenv('top_policy_bukcet')
 
 # Define output path
 # top30_output_path =
@@ -14,9 +17,9 @@ default_args = {
     'owner':'Sukatat'
 }
 
-dag = DAG('test', catchup=False, default_args = default_args)
+dag = DAG('BKK_Policy', catchup=False, default_args = default_args)
 
-# 
+
 @task()
 def et_top_30_policy(output_path):
     # Read HTML tables into a list of DataFrame objects.
@@ -57,7 +60,11 @@ def et_top_30_policy(output_path):
         'Goal (50 Districts)', 'Total Progress (Unit)', 'Progress (%)']]
 
     df_rushing_policy['No. (Goal)'] = df_rushing_policy['No. (Goal)'].str.strip('.')
-    df_rushing_policy.to_parquet(output_path, index=False)
+
+    # Load Data to GCS
+    today = date.today().strftime("%d-%m-%Y")
+    top30_output_path = output_path + str(today) + ".parquet"
+    df_rushing_policy.to_parquet(top30_output_path, index=False)
 
 # t1 = PythonOperator()
 
