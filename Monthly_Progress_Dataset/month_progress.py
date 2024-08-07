@@ -92,3 +92,6 @@ df_progress['No. (Goal)'] = df_progress['No. (Goal)'].replace('', np.nan)
 df_progress['No. (Goal)'] = df_progress['No. (Goal)'].str.strip('.')
 
 df_progress['Goal'] = df_progress['Goal'].apply(lambda x: remove_goal_id(x))
+
+df_progress = df_progress[['Goal','No. (Goal)','Unit', 'Related OKRs', 'Related KPI', 'Yearly Goal', 'Total Progress (Unit)', 'Total Progress (%)',
+             'Oct 23', 'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24', 'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24']]
