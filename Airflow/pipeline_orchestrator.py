@@ -5,6 +5,7 @@ from airflow.utils.dates import days_ago
 import pandas as pd
 import os
 from datetime import date
+import re
 
 # Define Input Path
 TOP_30_POLICIES_URL = 'https://policy.bangkok.go.th/tracking/frontend/web/index.php?r=site%2Findex'
@@ -176,4 +177,4 @@ def et_all_policy(output_path):
 
 # t2 - PythonOperator()
 
-# t1 >> t2
+[t1, t2] > t3
