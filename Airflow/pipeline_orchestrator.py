@@ -177,4 +177,21 @@ def et_all_policy(output_path):
 
 # t2 - PythonOperator()
 
-[t1, t2] > t3
+@dag(default_args=default_args, schedule_interval="@once", start_date=days_ago(1), tags=['workshop'])
+def bkk_policy_pipeline():
+    """
+    # Exercise4: Final DAG
+    ใน exercise นี้จะนำโค้ดที่เคยเขียนไว้ใน workshop1 มาทำให้เป็น pipeline บน Airflow [ทบทวนได้ที่นี่](https://colab.research.google.com/drive/1LQDVS0ayxFKF_ln-mc4CqLeayxzUKqZP?authuser=1)
+    """
+    
+    # TODO: สร้าง task จาก function ด้านบน และใส่ parameter ให้ถูกต้อง
+    today = date.today().strftime("%d-%m-%Y")
+    
+    t1 = et_top_30_policy(TOP_30_BUCKET_OUTPUT)
+    t2 = et_all_policy(ALL_POLICY_TRANFORMED_BUCKET_PATH)
+    t3 = merge_data(TOP_30_BUCKET_OUTPUT + '/top-policy-' + str(today) + ".parquet", ALL_POLICY_TRANFORMED_BUCKET_PATH + '/all-policy-' + str(today) + ".parquet", #final_output_path)
+
+    # TODO: สร้าง dependency ให้ถูกต้อง (ต้องรัน task 3 หลังจาก 1 และ 3 เสร็จเท่านั้น)
+    [t1, t2] >> t3
+
+workshop4_pipeline()
