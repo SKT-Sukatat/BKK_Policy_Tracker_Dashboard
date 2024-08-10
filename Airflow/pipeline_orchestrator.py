@@ -14,7 +14,7 @@ TOP_30_POLICIES_URL = 'https://policy.bangkok.go.th/tracking/frontend/web/index.
 
 # Define Output Path
 TOP_30_BUCKET_OUTPUT = os.getenv('top_policy_bukcet_path')
-ALL_POLICY_TRANFORMED_BUCKET_PATH = os.getenv('top_30_policy_transformed_path')
+ALL_POLICY_BUCKET_PATH = os.getenv('top_30_policy_transformed_path')
 
 
 default_args = {
@@ -35,9 +35,9 @@ def et_top_30_policy(output_path):
     # Check number of table(s)
     df_rushing_policy.dropna(axis = 0, inplace = True)
 
-    new_name = {'เป้าหมายตามนโยบาย ผว.กทม.': 'Goal', 'หน่วยนับ':'Unit', 'เป้าหมายรวม': 'Total Goals',
-        'เป้าหมายจากสำนัก':'Goal (Departments)', 'เป้าหมายจาก 50 เขต':'Goal (50 Districts)', 'ผลการดำเนินงาน*':'Total Progress (Unit)',
-        'ความคืบหน้า* ของ KPI (%)':'Progress (%)'}
+    new_name = {'เป้าหมายตามนโยบาย ผว.กทม.': 'Goal', 'หน่วยนับ':'Unit', 'เป้าหมายรวม': 'Total_Goals',
+        'เป้าหมายจากสำนัก':'Goal_Departments', 'เป้าหมายจาก 50 เขต':'Goal_50_Districts', 'ผลการดำเนินงาน*':'Total_Progress_in_Unit',
+        'ความคืบหน้า* ของ KPI (%)':'Progress_in_Percent'}
 
     df_rushing_policy.rename(columns = new_name, inplace = True)
 
@@ -57,16 +57,16 @@ def et_top_30_policy(output_path):
     df_rushing_policy['Related OKR'] = df_rushing_policy['Related OKR'].str.replace('(** ค่าเฉลี่ย **)', '(Mean Value)')
 
     splited_goal_2 = df_rushing_policy["Goal"].str.split(" ", n=1, expand=True)
-    df_rushing_policy["No. (Goal)"] = splited_goal_2[0]
+    df_rushing_policy["ID_Result"] = splited_goal_2[0]
     df_rushing_policy["Goal"] = splited_goal_2[1]
 
-    df_rushing_policy = df_rushing_policy[['No. (Goal)', 'Related OKR', 'Goal', 'Unit', 'Total Goals', 'Goal (Departments)',
-        'Goal (50 Districts)', 'Total Progress (Unit)', 'Progress (%)']]
-
-    df_rushing_policy['No. (Goal)'] = df_rushing_policy['No. (Goal)'].str.strip('.')
+    df_rushing_policy['ID_Result'] = df_rushing_policy['ID_Result'].str.strip('.')
 
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     df_rushing_policy['Updated_Date'] = today
+
+    df_rushing_policy = df_rushing_policy[['Updated_Date','ID_Result', 'Related OKR', 'Goal', 'Unit', 'Total_Goals', 'Goal_Departments',
+        'Goal_50_Districts', 'Total_Progress_in_Unit', 'Progress_in_Percent']]
 
     # Load Data to GCS
     top30_output_path = output_path + '/Transformed_Data/top-policy-' + str(today) + ".parquet"
@@ -86,7 +86,7 @@ def et_all_policy(output_path):
         df_progress = pd.concat([df_progress, progress_table[0]], ignore_index=True, axis = 0)
 
     ## Rename Columns
-    new_col_names = {'KEY_RESULT':'Goal', 'ค่าเป้าหมาย/ปี':'Yearly Goal', 'ผลดำเนินงาน (รวม)':'Total Progress (Unit)', 'หน่วยนับ':'Unit',
+    new_col_names = {'KEY_RESULT':'Goal', 'ค่าเป้าหมาย/ปี':'Yearly Goal', 'ผลดำเนินงาน (รวม)':'Total_Progress_in_Unit', 'หน่วยนับ':'Unit',
         'ตค.66':'Oct 23', 'พย.66':'Nov 23', 'ธค.66':'Dec 23', 'มค.67':'Jan 24', 'กพ.67':'Feb 24', 'มี.ค.67':'Mar 24', 'เม.ย.67':'Apr 24',
         'พค.67':'May 24', 'มิ.ย.67':'Jun 24', 'กค.67':'July 24', 'สค.67':'Aug 24', 'กย.67':'Sept 24'}
     df_progress.rename(columns = new_col_names, inplace = True)
@@ -145,8 +145,8 @@ def et_all_policy(output_path):
         return re.sub(r'\d{1,3}(?:,\d{3})*\.\d+%', '', text).strip()
 
 
-    # Dealing with Total Progress (%)
-    df_progress['Total Progress (%)'] = df_progress['Goal'].apply(extract_percent_progress)
+    # Dealing with Total_Progress_in_Percent
+    df_progress['Total_Progress_in_Percent'] = df_progress['Goal'].apply(extract_percent_progress)
     df_progress['Goal'] = df_progress['Goal'].apply(lambda x: remove_percent_progress(x))
 
     df_progress['Goal'] = df_progress['Goal'].str.replace(':', '')
@@ -165,13 +165,13 @@ def et_all_policy(output_path):
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     df_progress['Updated_Date'] = today
 
-    df_progress['No. (Goal)'] = df_progress['Goal'].apply(extract_goal_id)
-    df_progress['No. (Goal)'] = df_progress['No. (Goal)'].replace('', np.nan)
-    df_progress['No. (Goal)'] = df_progress['No. (Goal)'].str.strip('.')
+    df_progress['ID_Result'] = df_progress['Goal'].apply(extract_goal_id)
+    df_progress['ID_Result'] = df_progress['ID_Result'].replace('', np.nan)
+    df_progress['ID_Result'] = df_progress['ID_Result'].str.strip('.')
 
     df_progress['Goal'] = df_progress['Goal'].apply(lambda x: remove_goal_id(x))
 
-    df_progress = df_progress[['Goal','No. (Goal)','Unit', 'Related OKRs', 'Related KPI', 'Yearly Goal', 'Total Progress (Unit)', 'Total Progress (%)', 
+    df_progress = df_progress[['Goal','ID_Result','Unit', 'Related OKRs', 'Related KPI', 'Yearly Goal', 'Total_Progress_in_Unit', 'Total_Progress_in_Percent', 
                 'Oct 23', 'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24', 'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24']]
 
     # Load Data to GCS
@@ -184,18 +184,25 @@ def et_all_policy(output_path):
 @task()
 def merge_data(top_30_policy_path, all_policy_path, joined_output_path):
     # Read the data in parquet format from path
-    df_rushing_policy_for_join = pd.read_parquet(top_30_policy_path, columns=['No. (Goal)','Goal'])
-    df_progress_for_join = pd.read_parquet(all_policy_path, columns = ['No. (Goal)', 'Yearly Goal', 'Total Progress (Unit)', 'Unit', 'Total Progress (%)', 'Oct 23',
-        'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24', 'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24'])
-    df_joined = df_rushing_policy_for_join.merge(df_progress_for_join, left_on = 'No. (Goal)', right_on = 'No. (Goal)', how = 'left')
+    df_rushing_policy_for_join = pd.read_parquet(top_30_policy_path + '/top-policy-' + str(today) + ".parquet", columns=['ID_Result','Goal'])
+    df_progress_for_join = pd.read_parquet(all_policy_path + '/all-policy-' + str(today) + ".parquet",
+                                            columns = ['ID_Result', 'Yearly Goal', 'Total_Progress_in_Unit', 'Unit', 'Total_Progress_in_Percent', 'Oct 23',
+                                                       'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24', 'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24'])
+    # Join the DataFrames by merge function
+    df_joined = df_rushing_policy_for_join.merge(df_progress_for_join, left_on = 'ID_Result', right_on = 'ID_Result', how = 'left')
 
+    # Create Updated_Date columns to store the date
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     df_joined['Updated_Date'] = today
-    df_joined = df_joined[['Updated_Date','No. (Goal)', 'Goal', 'Yearly Goal', 'Total Progress (Unit)', 'Unit',
-        'Total Progress (%)', 'Oct 23', 'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24',
+
+    # Change order of columns
+    df_joined = df_joined[['Updated_Date','ID_Result', 'Goal', 'Yearly Goal', 'Total_Progress_in_Unit', 'Unit',
+        'Total_Progress_in_Percent', 'Oct 23', 'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24',
         'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24',]]
+    
+    joined_output_path = joined_output_path + '/Transformed_Data_with_Monthly_Progress/top-policy-with-month-progress-' + str(today) + ".parquet"
     df_joined.to_parquet(joined_output_path, index=False)
-    print(f"All policy Output to {all_policy_output_path}")
+    print(f"Top 30 policy with Month Output to {joined_output_path}")
 
 
 @dag(default_args=default_args, schedule_interval="@once", start_date=days_ago(1), tags=['workshop'])
@@ -208,8 +215,8 @@ def bkk_policy_pipeline():
         task_id="Update TOP30 Policy",
         bash_command="gsutil ls",
         )
-    t3 = et_all_policy(ALL_POLICY_TRANFORMED_BUCKET_PATH)
-    t4 = merge_data(TOP_30_BUCKET_OUTPUT + '/top-policy-' + str(today) + ".parquet", ALL_POLICY_TRANFORMED_BUCKET_PATH + '/all-policy-' + str(today) + ".parquet", final_output_path)
+    t3 = et_all_policy(ALL_POLICY_BUCKET_PATH)
+    t4 = merge_data(TOP_30_BUCKET_OUTPUT, ALL_POLICY_BUCKET_PATH, TOP_30_BUCKET_OUTPUT)
     t5 = BashOperator(
         task_id="Update Progress of Policy",
         bash_command="gsutil ls",
@@ -220,4 +227,4 @@ def bkk_policy_pipeline():
     [t2, t3] >> t4
     t4 >> t5
 
-workshop4_pipeline()
+bkk_policy_pipeline()
