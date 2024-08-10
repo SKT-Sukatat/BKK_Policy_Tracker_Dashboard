@@ -1,11 +1,13 @@
 from airflow.models import DAG
 from airflow.decorators import dag, task
-from airflow.operators.python import PythonOperator
+from airflow.operators.python import BashOperator
 from airflow.utils.dates import days_ago
 import pandas as pd
 import os
-from datetime import date
+from datetime import datetime
+import pytz
 import re
+
 
 # Define Input Path
 TOP_30_POLICIES_URL = 'https://policy.bangkok.go.th/tracking/frontend/web/index.php?r=site%2Findex'
@@ -63,10 +65,13 @@ def et_top_30_policy(output_path):
 
     df_rushing_policy['No. (Goal)'] = df_rushing_policy['No. (Goal)'].str.strip('.')
 
+    today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
+    df_rushing_policy['Updated_Date'] = today
+
     # Load Data to GCS
-    today = date.today().strftime("%d-%m-%Y")
-    top30_output_path = output_path + '/top-policy-' + str(today) + ".parquet"
+    top30_output_path = output_path + '/Transformed_Data/top-policy-' + str(today) + ".parquet"
     df_rushing_policy.to_parquet(top30_output_path, index=False)
+    print(f"Rushing Policy Output to {top30_output_path}")
 
 
 @task()
@@ -156,6 +161,9 @@ def et_all_policy(output_path):
     def remove_goal_id(text):
         return re.sub(r'\d+\.\d?', '', text).strip()
 
+    # Create Updated_Date columns to store the date
+    today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
+    df_progress['Updated_Date'] = today
 
     df_progress['No. (Goal)'] = df_progress['Goal'].apply(extract_goal_id)
     df_progress['No. (Goal)'] = df_progress['No. (Goal)'].replace('', np.nan)
@@ -166,41 +174,50 @@ def et_all_policy(output_path):
     df_progress = df_progress[['Goal','No. (Goal)','Unit', 'Related OKRs', 'Related KPI', 'Yearly Goal', 'Total Progress (Unit)', 'Total Progress (%)', 
                 'Oct 23', 'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24', 'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24']]
 
-
     # Load Data to GCS
-    today = date.today().strftime("%d-%m-%Y")
+    today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     all_policy_output_path = output_path + '/all-policy-' + str(today) + ".parquet"
     df_progress.to_parquet(all_policy_output_path, index=False)
+    print(f"All policy Output to {all_policy_output_path}")
+
 
 @task()
-def merge_data(top_30_policy_path, all_policy_path, output_path):
+def merge_data(top_30_policy_path, all_policy_path, joined_output_path):
     # Read the data in parquet format from path
     df_rushing_policy_for_join = pd.read_parquet(top_30_policy_path, columns=['No. (Goal)','Goal'])
     df_progress_for_join = pd.read_parquet(all_policy_path, columns = ['No. (Goal)', 'Yearly Goal', 'Total Progress (Unit)', 'Unit', 'Total Progress (%)', 'Oct 23',
         'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24', 'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24'])
-    df_joined = df_rushing_policy_for_join.merge(df_progress_for_join, left_on = 'No. (Goal)', right_on = 'No. (Goal)', how = 'left',suffixes=('_Rush', '_All'))
-    df_joined.to_parquet(output_path)
-    
+    df_joined = df_rushing_policy_for_join.merge(df_progress_for_join, left_on = 'No. (Goal)', right_on = 'No. (Goal)', how = 'left')
 
-# t1 = PythonOperator()
+    today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
+    df_joined['Updated_Date'] = today
+    df_joined = df_joined[['Updated_Date','No. (Goal)', 'Goal', 'Yearly Goal', 'Total Progress (Unit)', 'Unit',
+        'Total Progress (%)', 'Oct 23', 'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24',
+        'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24',]]
+    df_joined.to_parquet(joined_output_path, index=False)
+    print(f"All policy Output to {all_policy_output_path}")
 
-# t2 - PythonOperator()
 
 @dag(default_args=default_args, schedule_interval="@once", start_date=days_ago(1), tags=['workshop'])
 def bkk_policy_pipeline():
-    """
-    # Exercise4: Final DAG
-    ใน exercise นี้จะนำโค้ดที่เคยเขียนไว้ใน workshop1 มาทำให้เป็น pipeline บน Airflow [ทบทวนได้ที่นี่](https://colab.research.google.com/drive/1LQDVS0ayxFKF_ln-mc4CqLeayxzUKqZP?authuser=1)
-    """
+    today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     
-    # TODO: สร้าง task จาก function ด้านบน และใส่ parameter ให้ถูกต้อง
-    today = date.today().strftime("%d-%m-%Y")
-    
+    # Create task
     t1 = et_top_30_policy(TOP_30_BUCKET_OUTPUT)
-    t2 = et_all_policy(ALL_POLICY_TRANFORMED_BUCKET_PATH)
-    t3 = merge_data(TOP_30_BUCKET_OUTPUT + '/top-policy-' + str(today) + ".parquet", ALL_POLICY_TRANFORMED_BUCKET_PATH + '/all-policy-' + str(today) + ".parquet", #final_output_path)
+    t2 = BashOperator(
+        task_id="Update TOP30 Policy",
+        bash_command="gsutil ls",
+        )
+    t3 = et_all_policy(ALL_POLICY_TRANFORMED_BUCKET_PATH)
+    t4 = merge_data(TOP_30_BUCKET_OUTPUT + '/top-policy-' + str(today) + ".parquet", ALL_POLICY_TRANFORMED_BUCKET_PATH + '/all-policy-' + str(today) + ".parquet", final_output_path)
+    t5 = BashOperator(
+        task_id="Update Progress of Policy",
+        bash_command="gsutil ls",
+        )
 
     # TODO: สร้าง dependency ให้ถูกต้อง (ต้องรัน task 3 หลังจาก 1 และ 3 เสร็จเท่านั้น)
-    [t1, t2] >> t3
+    t1 >> t2
+    [t2, t3] >> t4
+    t4 >> t5
 
 workshop4_pipeline()
