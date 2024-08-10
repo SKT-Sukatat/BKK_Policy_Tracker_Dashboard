@@ -171,6 +171,15 @@ def et_all_policy(output_path):
     today = date.today().strftime("%d-%m-%Y")
     all_policy_output_path = output_path + '/all-policy-' + str(today) + ".parquet"
     df_progress.to_parquet(all_policy_output_path, index=False)
+
+@task()
+def merge_data(top_30_policy_path, all_policy_path, output_path):
+    # Read the data in parquet format from path
+    df_rushing_policy_for_join = pd.read_parquet(top_30_policy_path, columns=['No. (Goal)','Goal'])
+    df_progress_for_join = pd.read_parquet(all_policy_path, columns = ['No. (Goal)', 'Yearly Goal', 'Total Progress (Unit)', 'Unit', 'Total Progress (%)', 'Oct 23',
+        'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24', 'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24'])
+    df_joined = df_rushing_policy_for_join.merge(df_progress_for_join, left_on = 'No. (Goal)', right_on = 'No. (Goal)', how = 'left',suffixes=('_Rush', '_All'))
+    df_joined.to_parquet(output_path)
     
 
 # t1 = PythonOperator()
