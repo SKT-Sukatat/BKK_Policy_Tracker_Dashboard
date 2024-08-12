@@ -180,8 +180,10 @@ def et_all_policy(output_path):
     df_progress['Updated_Date'] = df_progress['Updated_Date'].astype('datetime64[us]')
     df_progress = df_progress.astype({'ID_Result': float})
 
-    df_progress = df_progress[['Updated_Date','Number','Goal','ID_Result','Unit', 'Related_OKRs', 'Related_KPI', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Total_Progress_in_Percent', 
-                'Oct_23', 'Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24', 'May_24', 'Jun_24', 'July_24', 'Aug_24', 'Sept_24']]
+    df_progress = df_progress[['Updated_Date','Number','Goal','ID_Result','Unit', 'Related_OKRs', 'Related_KPI', 
+                               'Yearly_Goal', 'Total_Progress_in_Unit', 'Total_Progress_in_Percent', 
+                               'Oct_23', 'Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24',
+                               'May_24', 'Jun_24', 'July_24', 'Aug_24', 'Sept_24']]
     
     # Load Data to GCS
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
@@ -192,9 +194,9 @@ def et_all_policy(output_path):
 
 @task()
 def merge_data(top_30_policy_path, all_policy_path, joined_output_path):
-    # Read the data in parquet format from GCS
+    # Read the data in parquet format from GCS # TOP_30_POLICY_BUCKET_PATH gs://bkk-policy-data/Top_30_Policy bkk-policy-data/Progress_of_Policy
     df_rushing_policy_for_join = pd.read_parquet(top_30_policy_path + '/top-policy-' + str(today) + ".parquet", columns=['ID_Result','Goal'])
-    df_progress_for_join = pd.read_parquet(all_policy_path + '/all-policy-' + str(today) + ".parquet", columns = ['ID_Result', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Unit', 'Total_Progress_in_Percent',
+    df_progress_for_join = pd.read_parquet(all_policy_path + '/All_Policy_Month_Progress/all-policy-' + str(today) + ".parquet", columns = ['ID_Result', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Unit', 'Total_Progress_in_Percent',
                                                                             'Oct_23','Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24', 'May_24', 'Jun_24','July_24', 'Aug_24', 'Sept_24'])
 
     # Join the DataFrames by merge function
@@ -229,19 +231,19 @@ def bkk_policy_pipeline():
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     
     # Create task
-    t1 = et_top_30_policy(TOP_30_BUCKET_OUTPUT)
+    t1 = et_top_30_policy(TOP_30_POLICY_BUCKET_PATH)
     t2 = BashOperator(
         task_id="Update TOP30 Policy",
         bash_command="gsutil ls",
         )
-    t3 = et_all_policy(ALL_POLICY_BUCKET_PATH)
-    t4 = merge_data(TOP_30_BUCKET_OUTPUT, ALL_POLICY_BUCKET_PATH, TOP_30_BUCKET_OUTPUT)
+    t3 = et_all_policy(PROGRESS_OF_POLICY_BUCKET_OUTPUT)
+    t4 = merge_data(TOP_30_POLICY_BUCKET_PATH, PROGRESS_OF_POLICY_BUCKET_OUTPUT, PROGRESS_OF_POLICY_BUCKET_OUTPUT)
     t5 = BashOperator(
         task_id="Update Progress of Policy",
         bash_command="gsutil ls",
         )
 
-    # TODO: สร้าง dependency ให้ถูกต้อง (ต้องรัน task 3 หลังจาก 1 และ 3 เสร็จเท่านั้น)
+    # Crate Task Dependency (Create DAG)
     t1 >> t2
     [t2, t3] >> t4
     t4 >> t5
