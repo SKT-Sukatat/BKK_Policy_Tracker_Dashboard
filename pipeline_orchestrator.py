@@ -101,12 +101,12 @@ def et_all_policy(output_path):
     df_progress = df_progress.reset_index()
     df_progress.drop('index', axis = 1, inplace = True)
 
-    df_progress.rename(columns = {'#':'Number'}, inplace = True)
+    # df_progress.rename(columns = {'#':'Number'}, inplace = True)
 
     # Set Index
-    df_progress['Number'] = df_progress['Number'].astype('int')
-    df_progress.set_index(df_progress['Number'], inplace = True)
-    #df_progress.drop('#', axis = 1, inplace = True)
+    df_progress['Number'] = df_progress['#'].astype('int')
+    df_progress.set_index(df_progress['#'], inplace = True)
+    df_progress.drop('#', axis = 1, inplace = True)
 
     # Function to extract all occurrences of "OKR \d+\.\d+\.\d+" (OKR 0.0.0)
     def extract_okr_numbers(text):
