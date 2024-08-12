@@ -13,8 +13,8 @@ import re
 TOP_30_POLICIES_URL = 'https://policy.bangkok.go.th/tracking/frontend/web/index.php?r=site%2Findex'
 
 # Define Output Path
-TOP_30_BUCKET_OUTPUT = os.getenv('top_policy_bukcet_path')
-ALL_POLICY_BUCKET_PATH = os.getenv('top_30_policy_transformed_path')
+PROGRESS_OF_POLICY_BUCKET_OUTPUT = os.getenv('progress_of_policy_bucket_path')
+TOP_30_POLICY_BUCKET_PATH = os.getenv('top_30_policy_bucket_path')
 
 
 default_args = {
@@ -72,7 +72,7 @@ def et_top_30_policy(output_path):
         'Goal_50_Districts', 'Total_Progress_in_Unit', 'Progress_in_Percent']]
 
     # Load Data to GCS
-    top30_output_path = output_path + '/Transformed_Data/top-policy-' + str(today) + ".parquet"
+    top30_output_path = output_path + '/top-policy-' + str(today) + ".parquet"
     df_rushing_policy.to_parquet(top30_output_path, index=False)
     print(f"Rushing Policy Output to {top30_output_path}")
 
@@ -185,7 +185,7 @@ def et_all_policy(output_path):
     
     # Load Data to GCS
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
-    all_policy_output_path = output_path + '/all-policy-' + str(today) + ".parquet"
+    all_policy_output_path = output_path + '/All_Policy_Month_Progress/all-policy-' + str(today) + ".parquet"
     df_progress.to_parquet(all_policy_output_path, index=False)
     print(f"All policy Output to {all_policy_output_path}")
 
@@ -212,14 +212,14 @@ def merge_data(top_30_policy_path, all_policy_path, joined_output_path):
 
     # Change order of columns
     df_joined = df_joined[['ID_Result', 'Updated_Date', 'Goal', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Unit',
-        'Total_Progress_in_Percent', 'Oct_23', 'Nov_23', 'Dec_23', 'Jan_24','Feb_24', 'Mar_24', 'Apr_24', 'May_24',
-            'Jun_24', 'July_24', 'Aug_24','Sept_24',  'Oct_23_Percent', 'Nov_23_Percent',
-        'Dec_23_Percent', 'Jan_24_Percent', 'Feb_24_Percent', 'Mar_24_Percent',
-        'Apr_24_Percent', 'May_24_Percent', 'Jun_24_Percent', 'July_24_Percent',
-        'Aug_24_Percent', 'Sept_24_Percent']]
+                           'Total_Progress_in_Percent', 'Oct_23', 'Nov_23', 'Dec_23', 'Jan_24','Feb_24', 'Mar_24', 'Apr_24', 'May_24',
+                           'Jun_24', 'July_24', 'Aug_24','Sept_24',  'Oct_23_Percent', 'Nov_23_Percent',
+                           'Dec_23_Percent', 'Jan_24_Percent', 'Feb_24_Percent', 'Mar_24_Percent',
+                           'Apr_24_Percent', 'May_24_Percent', 'Jun_24_Percent', 'July_24_Percent',
+                           'Aug_24_Percent', 'Sept_24_Percent']]
 
     # Load Data to GCS
-    joined_output_path = joined_output_path + '/Transformed_Data_with_Monthly_Progress/top-policy-with-month-progress-' + str(today) + ".parquet"
+    joined_output_path = joined_output_path + '/Top_30_Policy_Month_Progress/top-policy-with-month-progress-' + str(today) + ".parquet"
     df_joined.to_parquet(joined_output_path, index=False)
     print(f"Top 30 policy with Month Output to {joined_output_path}")
 
