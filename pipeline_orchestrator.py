@@ -101,9 +101,11 @@ def et_all_policy(output_path):
     df_progress = df_progress.reset_index()
     df_progress.drop('index', axis = 1, inplace = True)
 
+    df_progress.rename(columns = {'#':'Number'}, inplace = True)
+
     # Set Index
-    df_progress['#'] = df_progress['#'].astype('int')
-    df_progress.set_index(df_progress['#'], inplace = True)
+    df_progress['Number'] = df_progress['Number'].astype('int')
+    df_progress.set_index(df_progress['Number'], inplace = True)
     #df_progress.drop('#', axis = 1, inplace = True)
 
     # Function to extract all occurrences of "OKR \d+\.\d+\.\d+" (OKR 0.0.0)
@@ -174,13 +176,13 @@ def et_all_policy(output_path):
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     df_progress['Updated_Date'] = today
 
-    # Convert to datetime64[us] data type 
+    # Convert to datetime64[us] datatype 
     df_progress['Updated_Date'] = df_progress['Updated_Date'].astype('datetime64[us]')
     df_progress = df_progress.astype({'ID_Result': float})
 
-    df_progress = df_progress[['Updated_Date','#','Goal','ID_Result','Unit', 'Related_OKRs', 'Related_KPI', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Total_Progress_in_Percent', 
+    df_progress = df_progress[['Updated_Date','Number','Goal','ID_Result','Unit', 'Related_OKRs', 'Related_KPI', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Total_Progress_in_Percent', 
                 'Oct_23', 'Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24', 'May_24', 'Jun_24', 'July_24', 'Aug_24', 'Sept_24']]
-
+    
     # Load Data to GCS
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     all_policy_output_path = output_path + '/all-policy-' + str(today) + ".parquet"
