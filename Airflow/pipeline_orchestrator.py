@@ -206,6 +206,12 @@ def merge_data(top_30_policy_path, all_policy_path, joined_output_path):
     df_joined = df_joined[['Updated_Date','ID_Result', 'Goal', 'Yearly Goal', 'Total_Progress_in_Unit', 'Unit',
         'Total_Progress_in_Percent', 'Oct 23', 'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24',
         'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24',]]
+
+    all_months = ['Oct_23', 'Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24', 'May_24', 'Jun_24', 'July_24', 'Aug_24', 'Sept_24']
+
+    for month in all_months:
+        df_progress[month + '_Percent'] = df_progress[month].div(df_progress.Yearly_Goal, axis=0)*100
+        df_progress[month + '_Percent'] = df_progress[month + '_Percent'].round(2)
     
     joined_output_path = joined_output_path + '/Transformed_Data_with_Monthly_Progress/top-policy-with-month-progress-' + str(today) + ".parquet"
     df_joined.to_parquet(joined_output_path, index=False)
