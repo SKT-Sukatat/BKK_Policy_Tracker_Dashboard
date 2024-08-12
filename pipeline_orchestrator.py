@@ -192,11 +192,11 @@ def et_all_policy(output_path):
 
 @task()
 def merge_data(top_30_policy_path, all_policy_path, joined_output_path):
-    # Read the data in parquet format from path
+    # Read the data in parquet format from GCS
     df_rushing_policy_for_join = pd.read_parquet(top_30_policy_path + '/top-policy-' + str(today) + ".parquet", columns=['ID_Result','Goal'])
-    df_progress_for_join = pd.read_parquet(all_policy_path + '/all-policy-' + str(today) + ".parquet",
-                                            columns = ['ID_Result', 'Yearly Goal', 'Total_Progress_in_Unit', 'Unit', 'Total_Progress_in_Percent', 'Oct 23',
-                                                       'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24', 'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24'])
+    df_progress_for_join = pd.read_parquet(all_policy_path + '/all-policy-' + str(today) + ".parquet", columns = ['ID_Result', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Unit', 'Total_Progress_in_Percent',
+                                                                            'Oct_23','Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24', 'May_24', 'Jun_24','July_24', 'Aug_24', 'Sept_24'])
+
     # Join the DataFrames by merge function
     df_joined = df_rushing_policy_for_join.merge(df_progress_for_join, left_on = 'ID_Result', right_on = 'ID_Result', how = 'left')
 
@@ -204,17 +204,21 @@ def merge_data(top_30_policy_path, all_policy_path, joined_output_path):
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     df_joined['Updated_Date'] = today
 
-    # Change order of columns
-    df_joined = df_joined[['Updated_Date','ID_Result', 'Goal', 'Yearly Goal', 'Total_Progress_in_Unit', 'Unit',
-        'Total_Progress_in_Percent', 'Oct 23', 'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24',
-        'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24',]]
-
     all_months = ['Oct_23', 'Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24', 'May_24', 'Jun_24', 'July_24', 'Aug_24', 'Sept_24']
 
     for month in all_months:
-        df_progress[month + '_Percent'] = df_progress[month].div(df_progress.Yearly_Goal, axis=0)*100
-        df_progress[month + '_Percent'] = df_progress[month + '_Percent'].round(2)
-    
+        df_joined[month + '_Percent'] = df_joined[month].div(df_joined.Yearly_Goal, axis=0)*100
+        df_joined[month + '_Percent'] = df_joined[month + '_Percent'].round(2)
+
+    # Change order of columns
+    df_joined = df_joined[['ID_Result', 'Updated_Date', 'Goal', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Unit',
+        'Total_Progress_in_Percent', 'Oct_23', 'Nov_23', 'Dec_23', 'Jan_24','Feb_24', 'Mar_24', 'Apr_24', 'May_24',
+            'Jun_24', 'July_24', 'Aug_24','Sept_24',  'Oct_23_Percent', 'Nov_23_Percent',
+        'Dec_23_Percent', 'Jan_24_Percent', 'Feb_24_Percent', 'Mar_24_Percent',
+        'Apr_24_Percent', 'May_24_Percent', 'Jun_24_Percent', 'July_24_Percent',
+        'Aug_24_Percent', 'Sept_24_Percent']]
+
+    # Load Data to GCS
     joined_output_path = joined_output_path + '/Transformed_Data_with_Monthly_Progress/top-policy-with-month-progress-' + str(today) + ".parquet"
     df_joined.to_parquet(joined_output_path, index=False)
     print(f"Top 30 policy with Month Output to {joined_output_path}")
