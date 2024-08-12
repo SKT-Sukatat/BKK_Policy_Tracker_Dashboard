@@ -48,13 +48,13 @@ def et_top_30_policy(output_path):
     df_rushing_policy["Goal"] = splited_goal[0]
 
     # making separate last name column from new data frame
-    df_rushing_policy["Related OKR"] = splited_goal[1]
+    df_rushing_policy["Related_OKR"] = splited_goal[1]
 
     # Dropping old Name columns
     # df_rushing_policy.drop(columns=["Goal"], inplace=True)
 
-    df_rushing_policy['Related OKR'] = df_rushing_policy['Related OKR'].str.replace('OKR ', '')
-    df_rushing_policy['Related OKR'] = df_rushing_policy['Related OKR'].str.replace('(** ค่าเฉลี่ย **)', '(Mean Value)')
+    df_rushing_policy['Related_OKR'] = df_rushing_policy['Related_OKR'].str.replace('OKR ', '')
+    df_rushing_policy['Related_OKR'] = df_rushing_policy['Related_OKR'].str.replace('(** ค่าเฉลี่ย **)', '(Mean Value)')
 
     splited_goal_2 = df_rushing_policy["Goal"].str.split(" ", n=1, expand=True)
     df_rushing_policy["ID_Result"] = splited_goal_2[0]
@@ -65,7 +65,10 @@ def et_top_30_policy(output_path):
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     df_rushing_policy['Updated_Date'] = today
 
-    df_rushing_policy = df_rushing_policy[['Updated_Date','ID_Result', 'Related OKR', 'Goal', 'Unit', 'Total_Goals', 'Goal_Departments',
+    df_rushing_policy['Updated_Date'] = df_rushing_policy['Updated_Date'].astype('datetime64[us]')
+    df_rushing_policy = df_rushing_policy.astype({'ID_Result': float})
+
+    df_rushing_policy = df_rushing_policy[['Updated_Date','ID_Result', 'Related_OKR', 'Goal', 'Unit', 'Total_Goals', 'Goal_Departments',
         'Goal_50_Districts', 'Total_Progress_in_Unit', 'Progress_in_Percent']]
 
     # Load Data to GCS
