@@ -89,9 +89,9 @@ def et_all_policy(output_path):
         df_progress = pd.concat([df_progress, progress_table[0]], ignore_index=True, axis = 0)
 
     ## Rename Columns
-    new_col_names = {'KEY_RESULT':'Goal', 'ค่าเป้าหมาย/ปี':'Yearly Goal', 'ผลดำเนินงาน (รวม)':'Total_Progress_in_Unit', 'หน่วยนับ':'Unit',
-        'ตค.66':'Oct 23', 'พย.66':'Nov 23', 'ธค.66':'Dec 23', 'มค.67':'Jan 24', 'กพ.67':'Feb 24', 'มี.ค.67':'Mar 24', 'เม.ย.67':'Apr 24',
-        'พค.67':'May 24', 'มิ.ย.67':'Jun 24', 'กค.67':'July 24', 'สค.67':'Aug 24', 'กย.67':'Sept 24'}
+    new_col_names = {'KEY_RESULT':'Goal', 'ค่าเป้าหมาย/ปี':'Yearly_Goal', 'ผลดำเนินงาน (รวม)':'Total_Progress_in_Unit', 'หน่วยนับ':'Unit',
+        'ตค.66':'Oct_23', 'พย.66':'Nov_23', 'ธค.66':'Dec_23', 'มค.67':'Jan_24', 'กพ.67':'Feb_24', 'มี.ค.67':'Mar_24', 'เม.ย.67':'Apr_24',
+        'พค.67':'May_24', 'มิ.ย.67':'Jun_24', 'กค.67':'July_24', 'สค.67':'Aug_24', 'กย.67':'Sept_24'}
     df_progress.rename(columns = new_col_names, inplace = True)
 
     # Drop Null Value
@@ -104,7 +104,7 @@ def et_all_policy(output_path):
     # Set Index
     df_progress['#'] = df_progress['#'].astype('int')
     df_progress.set_index(df_progress['#'], inplace = True)
-    df_progress.drop('#', axis = 1, inplace = True)
+    #df_progress.drop('#', axis = 1, inplace = True)
 
     # Function to extract all occurrences of "OKR \d+\.\d+\.\d+" (OKR 0.0.0)
     def extract_okr_numbers(text):
@@ -117,12 +117,12 @@ def et_all_policy(output_path):
         return re.sub(r'OKR \d+\.\d+\.\d+(?:\.\d+)?', '', text).strip()
 
     # Apply the function to the Goal column
-    df_progress['Related OKRs'] = df_progress['Goal'].apply(extract_okr_numbers)
+    df_progress['Related_OKRs'] = df_progress['Goal'].apply(extract_okr_numbers)
     df_progress['Goal'] = df_progress['Goal'].apply(lambda x: remove_okr_numbers(x))
 
 
     # Replace all Blank value by NaN (Null)
-    df_progress['Related OKRs'] = df_progress['Related OKRs'].replace('', np.nan)
+    df_progress['Related_OKRs'] = df_progress['Related_OKRs'].replace('', np.nan)
 
     # Function to extract all occurrences of "\d+\.\d+%" (xxx.xx%)
     def extract_kpi_numbers(text):
@@ -134,10 +134,10 @@ def et_all_policy(output_path):
     def remove_kpi_numbers(text):
         return re.sub(r'KPI \d+(?:\.\d+){2,3}', '', text).strip()
 
-    df_progress['Related KPI'] = df_progress['Goal'].apply(extract_kpi_numbers)
+    df_progress['Related_KPI'] = df_progress['Goal'].apply(extract_kpi_numbers)
     df_progress['Goal'] = df_progress['Goal'].apply(lambda x: remove_kpi_numbers(x))
 
-    df_progress['Related KPI'] = df_progress['Related KPI'].replace('', np.nan)
+    df_progress['Related_KPI'] = df_progress['Related_KPI'].replace('', np.nan)
 
     # Function to extract all occurrences of "\d+\.\d+%" (xxx.xx%)
     def extract_percent_progress(text):
@@ -164,18 +164,22 @@ def et_all_policy(output_path):
     def remove_goal_id(text):
         return re.sub(r'\d+\.\d?', '', text).strip()
 
-    # Create Updated_Date columns to store the date
-    today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
-    df_progress['Updated_Date'] = today
-
     df_progress['ID_Result'] = df_progress['Goal'].apply(extract_goal_id)
     df_progress['ID_Result'] = df_progress['ID_Result'].replace('', np.nan)
     df_progress['ID_Result'] = df_progress['ID_Result'].str.strip('.')
 
     df_progress['Goal'] = df_progress['Goal'].apply(lambda x: remove_goal_id(x))
 
-    df_progress = df_progress[['Goal','ID_Result','Unit', 'Related OKRs', 'Related KPI', 'Yearly Goal', 'Total_Progress_in_Unit', 'Total_Progress_in_Percent', 
-                'Oct 23', 'Nov 23', 'Dec 23', 'Jan 24', 'Feb 24', 'Mar 24', 'Apr 24', 'May 24', 'Jun 24', 'July 24', 'Aug 24', 'Sept 24']]
+    # Create Updated_Date columns to store the date
+    today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
+    df_progress['Updated_Date'] = today
+
+    # Convert to datetime64[us] data type 
+    df_progress['Updated_Date'] = df_progress['Updated_Date'].astype('datetime64[us]')
+    df_progress = df_progress.astype({'ID_Result': float})
+
+    df_progress = df_progress[['Updated_Date','#','Goal','ID_Result','Unit', 'Related_OKRs', 'Related_KPI', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Total_Progress_in_Percent', 
+                'Oct_23', 'Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24', 'May_24', 'Jun_24', 'July_24', 'Aug_24', 'Sept_24']]
 
     # Load Data to GCS
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
