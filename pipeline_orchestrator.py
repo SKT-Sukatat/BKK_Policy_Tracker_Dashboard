@@ -2,6 +2,7 @@ from airflow.models import DAG
 from airflow.decorators import dag, task
 from airflow.operators.python import BashOperator
 from airflow.utils.dates import days_ago
+from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 import pandas as pd
 import os
 from datetime import datetime
@@ -232,16 +233,28 @@ def bkk_policy_pipeline():
     
     # Create task
     t1 = et_top_30_policy(TOP_30_POLICY_BUCKET_PATH)
-    t2 = BashOperator(
-        task_id="Update TOP30 Policy",
-        bash_command="gsutil ls",
-        )
+    t2 = GCSToBigQueryOperator(
+        task_id='Load Top 30 Policy',
+        bucket='bkk-policy-data',
+        source_objects=['gs://bkk-policy-data/Progress_of_Policy/All_Policy_Month_Progress/' + "all-policy-" + str(today) + ".parquet"],
+        destination_project_dataset_table="Progress_of_Policy.All_Policy",
+        skip_leading_rows=1,
+        autodetect = True,
+        write_disposition='WRITE_APPEND',
+        dag=dag
+    )
     t3 = et_all_policy(PROGRESS_OF_POLICY_BUCKET_OUTPUT)
     t4 = merge_data(TOP_30_POLICY_BUCKET_PATH, PROGRESS_OF_POLICY_BUCKET_OUTPUT, PROGRESS_OF_POLICY_BUCKET_OUTPUT)
-    t5 = BashOperator(
-        task_id="Update Progress of Policy",
-        bash_command="gsutil ls",
-        )
+    t5 = GCSToBigQueryOperator(
+        task_id='Load Top 30 Policy with Progress',
+        bucket='bkk-policy-data',
+        source_objects=['gs://bkk-policy-data/Progress_of_Policy/Top_30_Policy_Month_Progress/top-policy-with-month-progress-' + str(today) + ".parquet"],
+        destination_project_dataset_table="Progress_of_Policy.Top_30_Policy",
+        skip_leading_rows=1,
+        autodetect = True,
+        write_disposition='WRITE_APPEND',
+        dag=dag
+    )
 
     # Crate Task Dependency (Create DAG)
     t1 >> t2
