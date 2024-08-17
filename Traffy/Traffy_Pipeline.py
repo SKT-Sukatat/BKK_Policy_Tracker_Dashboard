@@ -1,10 +1,10 @@
-from airflow.models import DAG, Variable
+from airflow.models import Variable
 from airflow.decorators import dag, task
 from airflow.operators.python import BranchPythonOperator
 from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
-from airflow.providers.google.cloud.sensors.gcs import GCSFileSensor
+from airflow.providers.google.cloud.sensors.gcs import GCSObjectExistenceSensor
 from airflow.operators.email import EmailOperator
 
 
@@ -30,7 +30,7 @@ default_args = {
     'schedule_interval':'30 7 * * *'
 }
 
-dag = DAG('Traffy_Data_Pipeline', catchup=False, default_args = default_args)
+# dag = DAG('Traffy_Data_Pipeline', catchup=False, default_args = default_args)
 
 
 @task()
@@ -83,7 +83,7 @@ def etl_traffy_data(output_path):
     print("File Succesfully Load to GCS")
 
 
-@dag(default_args=default_args, schedule_interval="@once", start_date=days_ago(1), tags=['workshop'])
+@dag(default_args=default_args, schedule_interval="@once", start_date=days_ago(1), tags=['Traffy'])
 def traffy_pipeline():
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     source_object_path = TRAFFY_GCS_BUCKET_PATH  # Path for source object to laod to BigQuery
@@ -92,12 +92,10 @@ def traffy_pipeline():
     etl_traffy_record_data = etl_traffy_data(output_path=TRAFFY_GCS_BUCKET_PATH)
 
     # Sensor to check if the file exists in GCS
-    check_gcs_file = GCSFileSensor(
+    check_gcs_file = GCSObjectExistenceSensor(
         task_id='check_gcs_file',
-        bucket_name='traffy_fondue',  # Replace with your bucket name
-        object_name=f'{source_object_path}Traffy_All_Data_{today}.parquet',  # Replace with your file path
-        timeout=30 * 60,  # Timeout after 30 minutes
-        poke_interval=60,  # Check every 60 seconds
+        bucket='traffy_fondue',  # Replace with your bucket name
+        object=f'{source_object_path}Traffy_All_Data_{today}.parquet',  # Replace with your file path
         mode='poke'  # Use 'poke' mode for simplicity
     )
 
@@ -121,8 +119,8 @@ def traffy_pipeline():
         destination_project_dataset_table="Traffy_Fondue.BKK_records",
         skip_leading_rows=1,
         autodetect = True,
-        write_disposition='WRITE_APPEND',
-        dag=dag
+        write_disposition='WRITE_APPEND'
+        #dag=dag 
     )
 
     # Define the EmailOperator for when the file does not exist
@@ -143,7 +141,7 @@ def traffy_pipeline():
     )
 
     BQ_Load_Unsuccessfully = BashOperator(
-        task_id='BQ_Load_Successfully',
+        task_id='BQ_Load_Unuccessfully',
         bash_command='echo "UNSUCCES: The data is NOT loaded to BigQuery"'
     ) 
 
@@ -152,4 +150,4 @@ def traffy_pipeline():
     File_Exist_Load_to_BQ >> BQ_Load_Successfully 
     notify_file_not_exists >> BQ_Load_Unsuccessfully
 
-traffy_pipeline()
+Traffy_DAG = traffy_pipeline()
