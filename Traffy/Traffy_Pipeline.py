@@ -5,6 +5,7 @@ from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 from airflow.providers.google.cloud.sensors.gcs import GCSFileSensor
+from airflow.operators.email import EmailOperator
 
 
 import pandas as pd
@@ -26,6 +27,7 @@ default_args = {
     'email_on_retry': False,
     'retries': 3,
     'retry_delay': timedelta(minutes=5),
+    'schedule_interval':'30 7 * * *'
 }
 
 dag = DAG('Traffy_Data_Pipeline', catchup=False, default_args = default_args)
@@ -93,11 +95,11 @@ def traffy_pipeline():
     # Sensor to check if the file exists in GCS
     check_gcs_file = GCSFileSensor(
         task_id='check_gcs_file',
-        bucket_name='your-bucket-name',  # Replace with your bucket name
-        object_name='path/to/your/file.txt',  # Replace with your file path
+        bucket_name='traffy_fondue',  # Replace with your bucket name
+        object_name=f'{source_object_path}Traffy_All_Data_{today}.parquet',  # Replace with your file path
         timeout=30 * 60,  # Timeout after 30 minutes
         poke_interval=60,  # Check every 60 seconds
-        mode='poke',  # Use 'poke' mode for simplicity
+        mode='poke'  # Use 'poke' mode for simplicity
     )
 
     # Function to decide which path to take
@@ -110,14 +112,14 @@ def traffy_pipeline():
 
     branch_task = BranchPythonOperator(
         task_id='branch_task',
-        python_callable=choose_branch,
+        python_callable=choose_branch
     )
 
     File_Exist_Load_to_BQ = GCSToBigQueryOperator(
         task_id='File_Exist_Load_to_BQ',
-        bucket='bkk-policy-data',
+        bucket='traffy_fondue',
         source_objects=[f'{source_object_path}Traffy_All_Data_{today}.parquet'],
-        destination_project_dataset_table="Progress_of_Policy.Top_30_Policy",
+        destination_project_dataset_table="Traffy_Fondue.BKK_records",
         skip_leading_rows=1,
         autodetect = True,
         write_disposition='WRITE_APPEND',
@@ -128,12 +130,12 @@ def traffy_pipeline():
     notify_file_not_exists = EmailOperator(
         task_id='notify_file_not_exists',
         to=EMAIL_SUKATAT,
-        subject='File Not Found in GCS',
+        subject='Traffy Project: File Not Found in GCS',
         html_content=f"""
         <h3>Alert: File Not Found</h3>
         <p>The file <strong>{source_object_path}Traffy_All_Data_{today}.parquet'</strong> was not found in the GCS bucket <strong>your-bucket-name</strong>.</p>
         <p>Please take the necessary actions.</p>
-        """,
+        """
     )
 
     # Crate Task Dependency (Create DAG)
