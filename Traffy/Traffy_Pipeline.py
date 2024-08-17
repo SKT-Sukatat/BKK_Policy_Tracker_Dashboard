@@ -80,8 +80,7 @@ def etl_traffy_data(output_path):
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d_%m_%Y")
     filename = f'{output_path}Traffy_All_Data_{today}.parquet'
     df_traffy_all.to_parquet(filename, index = False)
-
-
+    print("File Succesfully Load to GCS")
 
 
 @dag(default_args=default_args, schedule_interval="@once", start_date=days_ago(1), tags=['workshop'])
@@ -138,7 +137,19 @@ def traffy_pipeline():
         """
     )
 
+    BQ_Load_Successfully = BashOperator(
+        task_id='BQ_Load_Successfully',
+        bash_command='echo "SUCCES: The data is loaded to BigQuery"'
+    )
+
+    BQ_Load_Unsuccessfully = BashOperator(
+        task_id='BQ_Load_Successfully',
+        bash_command='echo "UNSUCCES: The data is NOT loaded to BigQuery"'
+    ) 
+
     # Crate Task Dependency (Create DAG)
     etl_traffy_record_data >> check_gcs_file >> branch_task >> [File_Exist_Load_to_BQ, notify_file_not_exists]
+    File_Exist_Load_to_BQ >> BQ_Load_Successfully 
+    notify_file_not_exists >> BQ_Load_Unsuccessfully
 
 traffy_pipeline()
