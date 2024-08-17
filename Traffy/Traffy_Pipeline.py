@@ -8,7 +8,7 @@ from airflow.providers.google.cloud.sensors.gcs import GCSFileSensor
 
 
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 
 
@@ -16,10 +16,16 @@ import pytz
 TRAFFY_RECORDS_API = "https://publicapi.traffy.in.th/dump-csv-chadchart/bangkok_traffy.csv"
 
 # Define Output Path
-TRAFFY_GCS_BUCKET_PATH	 = Variable.get("TRAFFY_GCS_BUCKET_PATH	")
+TRAFFY_GCS_BUCKET_PATH = Variable.get("TRAFFY_GCS_BUCKET_PATH")
+EMAIL_SUKATAT = Variable.get("EMAIL_SUKATAT")
 
 default_args = {
-    'owner':'Sukatat'
+    'owner':'Sukatat',
+    'email': EMAIL_SUKATAT,
+    'email_on_failure': True,
+    'email_on_retry': False,
+    'retries': 3,
+    'retry_delay': timedelta(minutes=5),
 }
 
 dag = DAG('Traffy_Data_Pipeline', catchup=False, default_args = default_args)
@@ -98,9 +104,9 @@ def traffy_pipeline():
     def choose_branch(**kwargs):
         # Based on some condition, decide which branch to take
         if kwargs['ti'].xcom_pull(task_ids='check_gcs_file'):
-            return 'file_exists'
+            return 'File_Exist_Load_to_BQ'
         else:
-            return 'file_not_exists'
+            return 'notify_file_not_exists'
 
     branch_task = BranchPythonOperator(
         task_id='branch_task',
@@ -121,11 +127,11 @@ def traffy_pipeline():
     # Define the EmailOperator for when the file does not exist
     notify_file_not_exists = EmailOperator(
         task_id='notify_file_not_exists',
-        to='your-email@example.com',  # Replace with the recipient's email
+        to=EMAIL_SUKATAT,
         subject='File Not Found in GCS',
-        html_content="""
+        html_content=f"""
         <h3>Alert: File Not Found</h3>
-        <p>The file <strong>path/to/your/file.txt</strong> was not found in the GCS bucket <strong>your-bucket-name</strong>.</p>
+        <p>The file <strong>{source_object_path}Traffy_All_Data_{today}.parquet'</strong> was not found in the GCS bucket <strong>your-bucket-name</strong>.</p>
         <p>Please take the necessary actions.</p>
         """,
     )
