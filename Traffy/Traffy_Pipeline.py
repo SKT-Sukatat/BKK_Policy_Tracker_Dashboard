@@ -11,7 +11,7 @@ from airflow.operators.email import EmailOperator
 import pandas as pd
 from datetime import datetime, timedelta
 import pytz
-
+from google.cloud import storage
 
 # Define Input Path
 TRAFFY_RECORDS_API = "https://publicapi.traffy.in.th/dump-csv-chadchart/bangkok_traffy.csv"
@@ -19,6 +19,7 @@ TRAFFY_RECORDS_API = "https://publicapi.traffy.in.th/dump-csv-chadchart/bangkok_
 # Define Output Path
 TRAFFY_GCS_BUCKET_PATH = Variable.get("TRAFFY_GCS_BUCKET_PATH")
 EMAIL_SUKATAT = Variable.get("EMAIL_SUKATAT")
+PATH_TO_TRAFFY_PROJECT_PRIVATE_KEY = Variable.get("PATH_TO_TRAFFY_PROJECT_PRIVATE_KEY")
 
 default_args = {
     'owner':'Sukatat',
@@ -85,7 +86,7 @@ def etl_traffy_data(output_path):
 
 @dag(default_args=default_args, schedule_interval="@once", start_date=days_ago(1), tags=['Traffy'])
 def traffy_pipeline():
-    today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
+    today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d_%m_%Y")
     source_object_path = TRAFFY_GCS_BUCKET_PATH  # Path for source object to laod to BigQuery
     
     # Create task
@@ -119,7 +120,7 @@ def traffy_pipeline():
         destination_project_dataset_table="Traffy_Fondue.BKK_records",
         skip_leading_rows=1,
         autodetect = True,
-        write_disposition='WRITE_APPEND'
+        write_disposition='WRITE_TRUNCATE'
         #dag=dag 
     )
 
