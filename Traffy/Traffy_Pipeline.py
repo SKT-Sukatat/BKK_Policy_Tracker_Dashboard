@@ -1,7 +1,6 @@
 from airflow.models import Variable
 from airflow.decorators import dag, task
 from airflow.operators.python import BranchPythonOperator
-from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 from airflow.providers.google.cloud.sensors.gcs import GCSObjectExistenceSensor
@@ -28,8 +27,6 @@ TRAFFY_RECORDS_API = "https://publicapi.traffy.in.th/dump-csv-chadchart/bangkok_
 TRAFFY_GCS_BUCKET_PATH = Variable.get("TRAFFY_GCS_BUCKET_PATH")
 EMAIL_SUKATAT = Variable.get("EMAIL_SUKATAT")
 PATH_TO_GOOGLE_APPLICATION_CREDENTIALS = Variable.get("PATH_TO_GOOGLE_APPLICATION_CREDENTIALS")
-
-
 
 
 default_args = {
@@ -106,7 +103,7 @@ def etl_traffy_data(output_path):
     # df_traffy_all.to_parquet(filename, index = False)
 
     # Convert DataFrame to Parquet format in memory
-    table = pa.Table.from_pandas(df_traffy_all)
+    table = pa.Table.from_pandas(df_traffy_all, preserve_index=False)
     buffer = BytesIO()
     pq.write_table(table, buffer)
     # Create a bucket object
@@ -118,6 +115,15 @@ def etl_traffy_data(output_path):
     # client = storage.Client()
     # bucket = client.get_bucket('traffy_fondue')
     print("Data Succesfully Load to GCS")
+
+@task()
+def print_success():
+    print("SUCCESS: The data is loaded to BigQuery.")
+
+@task()
+def print_unsuccess():
+    print("UNSUCCESS: The data is NOT loaded to BigQuery.")
+
 
 
 @dag(default_args=default_args, start_date=days_ago(1), tags=['Traffy'])
@@ -176,19 +182,13 @@ def traffy_pipeline():
         """
     )
 
-    BQ_Load_Successfully = BashOperator(
-        task_id='BQ_Load_Successfully',
-        bash_command='echo "SUCCES: The data is loaded to BigQuery"'
-    )
+    Print_Load_Successfully = print_success()
 
-    BQ_Load_Unsuccessfully = BashOperator(
-        task_id='BQ_Load_Unuccessfully',
-        bash_command='echo "UNSUCCES: The data is NOT loaded to BigQuery"'
-    ) 
+    Print_Load_Unsuccessfully = print_unsuccess()
 
     # Crate Task Dependency (Create DAG)
     etl_traffy_record_data >> check_gcs_file >> branch_task >> [File_Exist_Load_to_BQ, notify_file_not_exists]
-    File_Exist_Load_to_BQ >> BQ_Load_Successfully 
-    notify_file_not_exists >> BQ_Load_Unsuccessfully
+    File_Exist_Load_to_BQ >> Print_Load_Successfully 
+    notify_file_not_exists >> Print_Load_Unsuccessfully
 
 Traffy_DAG = traffy_pipeline()
