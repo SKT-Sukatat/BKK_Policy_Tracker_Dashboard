@@ -7,11 +7,19 @@ from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQue
 from airflow.providers.google.cloud.sensors.gcs import GCSObjectExistenceSensor
 from airflow.operators.email import EmailOperator
 
-
+from google.cloud import storage
 import pandas as pd
 from datetime import datetime, timedelta
 import pytz
-from google.cloud import storage
+import json
+
+from google.oauth2 import service_account
+import pyarrow as pa
+import pyarrow.parquet as pq
+from io import BytesIO
+    
+project_id = 'BKK-Project'
+    
 
 # Define Input Path
 TRAFFY_RECORDS_API = "https://publicapi.traffy.in.th/dump-csv-chadchart/bangkok_traffy.csv"
@@ -19,7 +27,10 @@ TRAFFY_RECORDS_API = "https://publicapi.traffy.in.th/dump-csv-chadchart/bangkok_
 # Define Output Path
 TRAFFY_GCS_BUCKET_PATH = Variable.get("TRAFFY_GCS_BUCKET_PATH")
 EMAIL_SUKATAT = Variable.get("EMAIL_SUKATAT")
-PATH_TO_TRAFFY_PROJECT_PRIVATE_KEY = Variable.get("PATH_TO_TRAFFY_PROJECT_PRIVATE_KEY")
+PATH_TO_GOOGLE_APPLICATION_CREDENTIALS = Variable.get("PATH_TO_GOOGLE_APPLICATION_CREDENTIALS")
+
+
+
 
 default_args = {
     'owner':'Sukatat',
@@ -79,17 +90,41 @@ def etl_traffy_data(output_path):
 
     print("Data Tranformed Sucessfuly, Continue Loading to GCS")
 
+    print("Start to Authenticate to Google Cloud")
+    with open(PATH_TO_GOOGLE_APPLICATION_CREDENTIALS) as source:
+        info = json.load(source)
+
+    #client = storage.Client()
+    storage_credentials = service_account.Credentials.from_service_account_info(info)
+    storage_client = storage.Client(project=project_id, credentials=storage_credentials)
+    print("Authenticate to Google Cloud Sucessfully")
+
+    print("Start Loading Data to GCS")
     # Load Data to GCS
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d_%m_%Y")
-    filename = f'{output_path}Traffy_All_Data_{today}.parquet'
-    df_traffy_all.to_parquet(filename, index = False)
-    print("File Succesfully Load to GCS")
+    filename = f'Traffy_All_Data_{today}.parquet'
+    # df_traffy_all.to_parquet(filename, index = False)
+
+    # Convert DataFrame to Parquet format in memory
+    table = pa.Table.from_pandas(df_traffy_all)
+    buffer = BytesIO()
+    pq.write_table(table, buffer)
+    # Create a bucket object
+    bucket = storage_client.bucket('traffy_fondue')
+    # Upload the Parquet file to Google Cloud Storage
+    blob = bucket.blob(filename)
+    blob.upload_from_string(buffer.getvalue(), content_type='application/octet-stream')
+    # GOOGLE_APPLICATION_CREDENTIALS = Variable.get("GOOGLE_APPLICATION_CREDENTIALS")
+    # client = storage.Client()
+    # bucket = client.get_bucket('traffy_fondue')
+    print("Data Succesfully Load to GCS")
 
 
-@dag(default_args=default_args, schedule_interval="@once", start_date=days_ago(1), tags=['Traffy'])
+@dag(default_args=default_args, start_date=days_ago(1), tags=['Traffy'])
 def traffy_pipeline():
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d_%m_%Y")
-    source_object_path = TRAFFY_GCS_BUCKET_PATH  # Path for source object to laod to BigQuery
+    
+    source_object_filename = f'Traffy_All_Data_{today}.parquet'  # filename for source object to laod to BigQuery
     
     # Create task
     etl_traffy_record_data = etl_traffy_data(output_path=TRAFFY_GCS_BUCKET_PATH)
@@ -98,8 +133,10 @@ def traffy_pipeline():
     check_gcs_file = GCSObjectExistenceSensor(
         task_id='check_gcs_file',
         bucket='traffy_fondue',  # Replace with your bucket name
-        object=f'{source_object_path}Traffy_All_Data_{today}.parquet',  # Replace with your file path
-        mode='poke'  # Use 'poke' mode for simplicity
+        object=f'Traffy_All_Data_{today}.parquet',  # Replace with your file path
+        mode='poke',  # Use 'poke' mode for simplicity
+        timeout=90,  # Timeout after 90 seconds
+        poke_interval=30  # Check every 30 seconds
     )
 
     # Function to decide which path to take
@@ -118,8 +155,9 @@ def traffy_pipeline():
     File_Exist_Load_to_BQ = GCSToBigQueryOperator(
         task_id='File_Exist_Load_to_BQ',
         bucket='traffy_fondue',
-        source_objects=[f'{source_object_path}Traffy_All_Data_{today}.parquet'],
+        source_objects=[source_object_filename],
         destination_project_dataset_table="Traffy_Fondue.BKK_records",
+        source_format='PARQUET',
         skip_leading_rows=1,
         autodetect = True,
         write_disposition='WRITE_TRUNCATE'
@@ -133,7 +171,7 @@ def traffy_pipeline():
         subject='Traffy Project: File Not Found in GCS',
         html_content=f"""
         <h3>Alert: File Not Found</h3>
-        <p>The file <strong>{source_object_path}Traffy_All_Data_{today}.parquet'</strong> was not found in the GCS bucket <strong>your-bucket-name</strong>.</p>
+        <p>The file <strong>{source_object_filename}Traffy_All_Data_{today}.parquet'</strong> was not found in the GCS bucket <strong>your-bucket-name</strong>.</p>
         <p>Please take the necessary actions.</p>
         """
     )
