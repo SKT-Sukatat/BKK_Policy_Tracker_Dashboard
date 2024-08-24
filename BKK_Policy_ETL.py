@@ -1,4 +1,4 @@
-from airflow.models import DAG
+from airflow.models import DAG, Variable
 from airflow.decorators import dag, task
 from airflow.operators.python import BashOperator
 from airflow.utils.dates import days_ago
@@ -11,15 +11,22 @@ import re
 
 
 # Define Input Path
-TOP_30_POLICIES_URL = 'https://policy.bangkok.go.th/tracking/frontend/web/index.php?r=site%2Findex'
+TOP_30_POLICIES_URL = Variable.get("TOP_30_POLICIES_URL")
 
 # Define Output Path
-PROGRESS_OF_POLICY_BUCKET_OUTPUT = os.getenv('progress_of_policy_bucket_path')
-TOP_30_POLICY_BUCKET_PATH = os.getenv('top_30_policy_bucket_path')
+PROGRESS_OF_POLICY_BUCKET_OUTPUT = Variable.get("PROGRESS_OF_POLICY_BUCKET_OUTPUT")
+TOP_30_POLICY_BUCKET_PATH = Variable.get("TOP_30_POLICY_BUCKET_PATH")
+EMAIL_SUKATAT = Variable.get("EMAIL_SUKATAT")
 
 
 default_args = {
-    'owner':'Sukatat'
+    'owner':'Sukatat',
+    'email': EMAIL_SUKATAT,
+    'email_on_failure': True,
+    'email_on_retry': False,
+    'retries': 3,
+    'retry_delay': timedelta(minutes=5),
+    'schedule_interval':'30 8 * * *'
 }
 
 dag = DAG('BKK_Policy', catchup=False, default_args = default_args)
@@ -106,6 +113,7 @@ def et_all_policy(output_path):
 
     # Set Index
     df_progress['Number'] = df_progress['#'].astype('int')
+    df_progress['#'] = df_progress['#'].astype('int')
     df_progress.set_index(df_progress['#'], inplace = True)
     df_progress.drop('#', axis = 1, inplace = True)
 
@@ -177,15 +185,13 @@ def et_all_policy(output_path):
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     df_progress['Updated_Date'] = today
 
-    # Convert to datetime64[us] datatype 
+    # Convert to datetime64[us] datatype
     df_progress['Updated_Date'] = df_progress['Updated_Date'].astype('datetime64[us]')
     df_progress = df_progress.astype({'ID_Result': float})
 
-    df_progress = df_progress[['Updated_Date','Number','Goal','ID_Result','Unit', 'Related_OKRs', 'Related_KPI', 
-                               'Yearly_Goal', 'Total_Progress_in_Unit', 'Total_Progress_in_Percent', 
-                               'Oct_23', 'Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24',
-                               'May_24', 'Jun_24', 'July_24', 'Aug_24', 'Sept_24']]
-    
+    df_progress = df_progress[['Updated_Date','Number','Goal','ID_Result','Unit', 'Related_OKRs', 'Related_KPI', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Total_Progress_in_Percent',
+                'Oct_23', 'Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24', 'May_24', 'Jun_24', 'July_24', 'Aug_24', 'Sept_24']]
+
     # Load Data to GCS
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
     all_policy_output_path = output_path + '/All_Policy_Month_Progress/all-policy-' + str(today) + ".parquet"
@@ -195,7 +201,7 @@ def et_all_policy(output_path):
 
 @task()
 def merge_data(top_30_policy_path, all_policy_path, joined_output_path):
-    # Read the data in parquet format from GCS # TOP_30_POLICY_BUCKET_PATH gs://bkk-policy-data/Top_30_Policy bkk-policy-data/Progress_of_Policy
+    # Read the data in parquet format from GCS # TOP_30_POLICY_BUCKET_PATH
     df_rushing_policy_for_join = pd.read_parquet(top_30_policy_path + '/top-policy-' + str(today) + ".parquet", columns=['ID_Result','Goal'])
     df_progress_for_join = pd.read_parquet(all_policy_path + '/All_Policy_Month_Progress/all-policy-' + str(today) + ".parquet", columns = ['ID_Result', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Unit', 'Total_Progress_in_Percent',
                                                                             'Oct_23','Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24', 'May_24', 'Jun_24','July_24', 'Aug_24', 'Sept_24'])
@@ -210,8 +216,8 @@ def merge_data(top_30_policy_path, all_policy_path, joined_output_path):
     all_months = ['Oct_23', 'Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24', 'May_24', 'Jun_24', 'July_24', 'Aug_24', 'Sept_24']
 
     for month in all_months:
-        df_joined[month + '_Percent'] = df_joined[month].div(df_joined.Yearly_Goal, axis=0)*100
-        df_joined[month + '_Percent'] = df_joined[month + '_Percent'].round(2)
+        df_joined[month + '_percent'] = df_joined[month].div(df_joined.Yearly_Goal, axis=0)*100
+        df_joined[month + '_percent'] = df_joined[month + '_percent'].round(2)
 
     # Change order of columns
     df_joined = df_joined[['ID_Result', 'Updated_Date', 'Goal', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Unit',
