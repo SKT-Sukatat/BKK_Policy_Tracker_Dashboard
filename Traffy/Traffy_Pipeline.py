@@ -76,6 +76,10 @@ def etl_traffy_data(output_path):
     # Ensure the column is in datetime64[us] format
     df_traffy_all['last_activity'] = df_traffy_all['last_activity'].astype('datetime64[us]')
 
+    # Set datetime threshold for data
+    date_threshold = pd.Timestamp('2022-04-01 00:00:00') # After Ajarn Chadchart
+    df_traffy_all = df_traffy_all[df_traffy_all['timestamp'] > date_threshold] # Filter the DataFrame
+
     # Replace '{' and '}' in the 'type' column
     df_traffy_all['type'] = df_traffy_all['type'].str.replace('{', '', regex=False).str.replace('}', '', regex=False)
 
