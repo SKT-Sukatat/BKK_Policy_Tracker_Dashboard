@@ -1,5 +1,5 @@
 def traffy_transform(TRAFFY_RECORDS_API):
-    # Start measuring for Pandas
+    # Start measuring for Spark
     start_time = time.time()
     start_memory = get_memory_usage()
 
