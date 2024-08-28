@@ -17,13 +17,12 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from io import BytesIO
     
-project_id = 'BKK-Project'
-    
 
 # Define Input Path
 TRAFFY_RECORDS_API = "https://publicapi.traffy.in.th/dump-csv-chadchart/bangkok_traffy.csv"
 
 # Define Output Path
+BKK_PROJECT_ID = Variable.get("BKK_PROJECT_ID")
 TRAFFY_GCS_BUCKET_PATH = Variable.get("TRAFFY_GCS_BUCKET_PATH")
 EMAIL_SUKATAT = Variable.get("EMAIL_SUKATAT")
 PATH_TO_GOOGLE_APPLICATION_CREDENTIALS = Variable.get("PATH_TO_GOOGLE_APPLICATION_CREDENTIALS")
@@ -38,8 +37,6 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
     'schedule_interval':'30 7 * * *'
 }
-
-# dag = DAG('Traffy_Data_Pipeline', catchup=False, default_args = default_args)
 
 
 @task()
@@ -95,16 +92,14 @@ def etl_traffy_data(output_path):
     with open(PATH_TO_GOOGLE_APPLICATION_CREDENTIALS) as source:
         info = json.load(source)
 
-    #client = storage.Client()
     storage_credentials = service_account.Credentials.from_service_account_info(info)
-    storage_client = storage.Client(project=project_id, credentials=storage_credentials)
+    storage_client = storage.Client(project=BKK_PROJECT_ID, credentials=storage_credentials)
     print("Authenticate to Google Cloud Sucessfully")
 
     print("Start Loading Data to GCS")
     # Load Data to GCS
     today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d_%m_%Y")
     filename = f'Traffy_All_Data_{today}.parquet'
-    # df_traffy_all.to_parquet(filename, index = False)
 
     # Convert DataFrame to Parquet format in memory
     table = pa.Table.from_pandas(df_traffy_all, preserve_index=False)
@@ -115,14 +110,14 @@ def etl_traffy_data(output_path):
     # Upload the Parquet file to Google Cloud Storage
     blob = bucket.blob(filename)
     blob.upload_from_string(buffer.getvalue(), content_type='application/octet-stream')
-    # GOOGLE_APPLICATION_CREDENTIALS = Variable.get("GOOGLE_APPLICATION_CREDENTIALS")
-    # client = storage.Client()
-    # bucket = client.get_bucket('traffy_fondue')
+
     print("Data Succesfully Load to GCS")
+
 
 @task()
 def print_success():
     print("SUCCESS: The data is loaded to BigQuery.")
+
 
 @task()
 def print_unsuccess():
@@ -162,6 +157,7 @@ def traffy_pipeline():
         python_callable=choose_branch
     )
 
+    # If the parquet file exist load to BigQuery
     File_Exist_Load_to_BQ = GCSToBigQueryOperator(
         task_id='File_Exist_Load_to_BQ',
         bucket='traffy_fondue',
