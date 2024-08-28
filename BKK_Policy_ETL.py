@@ -4,8 +4,7 @@ from airflow.operators.python import BashOperator
 from airflow.utils.dates import days_ago
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 import pandas as pd
-import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import re
 
@@ -200,10 +199,11 @@ def et_all_policy(output_path):
 
 
 @task()
-def merge_data(top_30_policy_path, all_policy_path, joined_output_path):
+def merge_data(joined_output_path):
     # Read the data in parquet format from GCS # TOP_30_POLICY_BUCKET_PATH
-    df_rushing_policy_for_join = pd.read_parquet(top_30_policy_path + '/top-policy-' + str(today) + ".parquet", columns=['ID_Result','Goal'])
-    df_progress_for_join = pd.read_parquet(all_policy_path + '/All_Policy_Month_Progress/all-policy-' + str(today) + ".parquet", columns = ['ID_Result', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Unit', 'Total_Progress_in_Percent',
+    today = datetime.now(pytz.timezone('Asia/Bangkok')).strftime("%d-%m-%Y")
+    df_rushing_policy_for_join = pd.read_parquet("top-policy-{today}.parquet", columns=['ID_Result','Goal'])
+    df_progress_for_join = pd.read_parquet("all-policy-{today}.parquet", columns = ['ID_Result', 'Yearly_Goal', 'Total_Progress_in_Unit', 'Unit', 'Total_Progress_in_Percent',
                                                                             'Oct_23','Nov_23', 'Dec_23', 'Jan_24', 'Feb_24', 'Mar_24', 'Apr_24', 'May_24', 'Jun_24','July_24', 'Aug_24', 'Sept_24'])
 
     # Join the DataFrames by merge function
