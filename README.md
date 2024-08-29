@@ -24,12 +24,12 @@ This diagram show the overall of data pipeline and connection to Looker Studio, 
 ![DAG](https://github.com/user-attachments/assets/2fcca232-2a93-4a21-b58b-c60e065d3c78)
 
 **Pipeline Setup Code**
-- Traffy Fondue ETL:[Traffy_Pipeline.py](https://github.com/SKT-Sukatat/BKK_Problem_and_Policy_Tracking_System/blob/main/Traffy_Pipeline.py)
+- Traffy Fondue ETL: [Traffy_Pipeline.py](https://github.com/SKT-Sukatat/BKK_Problem_and_Policy_Tracking_System/blob/main/Traffy_Pipeline.py)
 - Transfromation function in PySpark version: [traffy_pyspark_version.py](https://github.com/SKT-Sukatat/BKK_Problem_and_Policy_Tracking_System/blob/main/Traffy_PySpark_version.py)
 - BKK_Policy_Pipeline (In development): [BKK_Policy_Pipeline.py](https://github.com/SKT-Sukatat/BKK_Problem_and_Policy_Tracking_System/blob/main/BKK_Policy_Pipeline.py)
 
 ## Dashboard
-![Link Looker Studio Dashboard](https://lookerstudio.google.com/reporting/e016ed89-b0c6-46cc-a457-0aab0c94cfff)
+**Looker Studio Link:** (https://lookerstudio.google.com/reporting/e016ed89-b0c6-46cc-a457-0aab0c94cfff)
 
 ![chart_2](https://github.com/user-attachments/assets/4f04fe5e-c3e2-4452-80df-56593526553a)
 This picture illustrates a dashboard example displaying the number of problem cases for each type, the count of reviews by star rating, and a line chart showing the number of problem cases for each type over time.
